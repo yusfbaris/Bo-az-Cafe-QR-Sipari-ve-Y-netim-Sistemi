@@ -1,21 +1,4 @@
-// --- FIREBASE YAPILANDIRMASI VE BAĞLANTISI ---
-const firebaseConfig = {
-    apiKey: "AIzaSyC2ZRTGSOvdJR1sQw1MSTAG94zFHDTZc7g",
-    authDomain: "bogazcafee.firebaseapp.com",
-    projectId: "bogazcafee",
-    storageBucket: "bogazcafee.firebasestorage.app",
-    messagingSenderId: "58612336622",
-    appId: "1:58612336622:web:134c5d3940324920ea38ff",
-    measurementId: "G-X61H9KD691"
-};
-
-// Firebase'i başlatıyoruz
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.database();
-
-// --- ELEMENT SEÇİCİLERİ ---
+// Secicileri tanimliyoruz
 const searchForm = document.querySelector(".search-form");
 const cartItem = document.querySelector(".cart-items-container");
 const navbar = document.querySelector(".navbar");
@@ -27,7 +10,7 @@ const menuBtn = document.querySelector("#menu-btn");
 // Masa seçicisi
 const tableSelect = document.querySelector("#table-no");
 
-// --- PANEL ACMA / KAPAMA ISLEMLERI ---
+// Panel Acma / Kapama Islemleri
 if (searchBtn) {
     searchBtn.addEventListener("click", function (e) {
         searchForm.classList.toggle("active");
@@ -68,26 +51,28 @@ document.addEventListener("click", function (e) {
     }
 });
 
-// --- FIREBASE DINAMIK MASA YÜKLEME SİSTEMİ ---
+// --- DINAMIK MASA YÜKLEME SİSTEMİ ---
+
 function masaListesiniYukle() {
     const tSelect = document.querySelector("#table-no");
     if (!tSelect) return; 
 
-    // Firebase'den masaları canlı dinliyoruz
-    db.ref('kafe_masalari').on('value', (snapshot) => {
-        tSelect.innerHTML = '<option value="default" disabled selected>Masa Seçin...</option>';
-        snapshot.forEach((child) => {
-            const masaAd = child.val();
-            const option = document.createElement("option");
-            option.value = masaAd;
-            option.textContent = masaAd;
-            tSelect.appendChild(option);
-        });
+    const masalar = JSON.parse(localStorage.getItem("kafe_masalari")) || [];
+    tSelect.innerHTML = '<option value="default" disabled selected>Masa Seçin...</option>';
+
+    masalar.forEach(masa => {
+        const option = document.createElement("option");
+        option.value = masa;
+        option.textContent = masa;
+        tSelect.appendChild(option);
     });
 }
 
-// --- FIREBASE DINAMIK ÜRÜN YÜKLEME SİSTEMİ ---
+// --- DINAMIK ÜRÜN YÜKLEME SİSTEMİ ---
+
 function renderProducts() {
+    const managedProducts = JSON.parse(localStorage.getItem("yonetilen_urunler")) || [];
+    
     const containers = {
         "menu": document.getElementById("menu-container"),
         "featured": document.getElementById("featured-container"),
@@ -98,62 +83,58 @@ function renderProducts() {
 
     if (!containers.menu && !containers.desserts && !containers.featured) return;
 
-    // Firebase'den ürünleri canlı dinliyoruz
-    db.ref('yonetilen_urunler').on('value', (snapshot) => {
-        // Önce tüm kapları temizle
-        Object.values(containers).forEach(container => {
-            if(container) container.innerHTML = "";
-        });
-
-        snapshot.forEach((child) => {
-            const product = child.val();
-            const targetContainer = containers[product.kategori];
-
-            if (targetContainer) {
-                let html = "";
-                if (product.kategori === "menu") {
-                    html = `
-                    <div class="box">
-                        <div class="box-head">
-                            <img src="${product.resim}" alt="menu">
-                            <span class="menu-category">YENİ</span>
-                            <h3>${product.ad}</h3>
-                            <div class="price">${product.fiyat} TL</div>
-                        </div>
-                        <div class="box-bottom">
-                            <a href="#" class="btn add-to-cart-btn"> Sepete Ekle</a>
-                        </div>
-                    </div>`;
-                } else {
-                    html = `
-                    <div class="box">
-                        <div class="box-head">
-                            <span class="title">${product.kategori.toUpperCase()}</span>
-                            <a href="#" class="name">${product.ad}</a>
-                        </div>
-                        <div class="image">
-                            <img src="${product.resim}" alt=""/>
-                        </div>
-                        <div class="box-bottom">
-                            <div class="info">
-                                <b class="price">${product.fiyat} TL</b>
-                                <span class="amount">Taze Hazırlanmış</span>
-                            </div>
-                            <div class="product-btn">
-                                <a href="#" class="add-to-cart-btn"><i class="fas fa-plus"></i></a>
-                            </div>
-                        </div>
-                    </div>`;
-                }
-                targetContainer.insertAdjacentHTML("beforeend", html);
-            }
-        });
-        // Ürünler yüklendikten sonra sepet butonlarını aktif et
-        attachCartEvents();
+    Object.values(containers).forEach(container => {
+        if(container) container.innerHTML = "";
     });
+
+    managedProducts.forEach(product => {
+        const targetContainer = containers[product.kategori];
+        if (targetContainer) {
+            let html = "";
+            
+            if (product.kategori === "menu") {
+                html = `
+                <div class="box">
+                    <div class="box-head">
+                        <img src="${product.resim}" alt="menu">
+                        <span class="menu-category">YENİ</span>
+                        <h3>${product.ad}</h3>
+                        <div class="price">${product.fiyat} TL</div>
+                    </div>
+                    <div class="box-bottom">
+                        <a href="#" class="btn add-to-cart-btn"> Sepete Ekle</a>
+                    </div>
+                </div>`;
+            } else {
+                html = `
+                <div class="box">
+                    <div class="box-head">
+                        <span class="title">${product.kategori.toUpperCase()}</span>
+                        <a href="#" class="name">${product.ad}</a>
+                    </div>
+                    <div class="image">
+                        <img src="${product.resim}" alt=""/>
+                    </div>
+                    <div class="box-bottom">
+                        <div class="info">
+                            <b class="price">${product.fiyat} TL</b>
+                            <span class="amount">Taze Hazırlanmış</span>
+                        </div>
+                        <div class="product-btn">
+                            <a href="#" class="add-to-cart-btn"><i class="fas fa-plus"></i></a>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            targetContainer.insertAdjacentHTML("beforeend", html);
+        }
+    });
+
+    attachCartEvents();
 }
 
 // --- DINAMIK SEPET SISTEMI ---
+
 let cart = []; 
 
 function attachCartEvents() {
@@ -164,6 +145,7 @@ function attachCartEvents() {
             e.stopPropagation(); 
 
             const productBox = btn.closest(".box");
+            
             let name = "";
             const h3Name = productBox.querySelector("h3");
             const aName = productBox.querySelector(".name");
@@ -235,6 +217,7 @@ window.removeFromCart = function(index) {
 }
 
 // --- SIPARIS GONDERME (CHECKOUT) ---
+
 const handleCheckout = (e) => {
     e.preventDefault();
     const tableNo = tableSelect ? tableSelect.value : null;
@@ -249,18 +232,42 @@ const handleCheckout = (e) => {
         return;
     }
 
-    // Siparişleri de Firebase'e gönderiyoruz (Opsiyonel: Garson paneli de buradan okuyabilir)
     let existingOrders = JSON.parse(localStorage.getItem("orders")) || [];
-    const order = {
-        id: Date.now(),
-        table: tableNo, 
-        items: [...cart], 
-        time: new Date().toLocaleTimeString(),
-        total: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-        status: "bekliyor"
-    };
+    
+    // Masa için mevcut bir aktif sipariş olup olmadığını kontrol et
+    const existingOrderIndex = existingOrders.findIndex(o => o.table.trim() === tableNo.trim());
 
-    existingOrders.push(order);
+    if (existingOrderIndex !== -1) {
+        // MASA ZATEN AÇIK: Yeni ürünleri ekle
+        cart.forEach(newProduct => {
+            const itemInOrder = existingOrders[existingOrderIndex].items.find(i => i.name === newProduct.name);
+            if (itemInOrder) {
+                // Eğer ürün zaten varsa adedi artır
+                itemInOrder.quantity += newProduct.quantity;
+            } else {
+                // Yeni ürün ise listeye ekle
+                existingOrders[existingOrderIndex].items.push(newProduct);
+            }
+        });
+
+        // Toplamı ve zamanı güncelle, durumu tekrar bekliyor yap
+        existingOrders[existingOrderIndex].total = existingOrders[existingOrderIndex].items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        existingOrders[existingOrderIndex].status = "bekliyor";
+        existingOrders[existingOrderIndex].time = new Date().toLocaleTimeString();
+    } else {
+        // YENİ KAYIT OLUŞTUR
+        const order = {
+            id: Date.now(),
+            table: tableNo, 
+            items: [...cart], 
+            time: new Date().toLocaleTimeString(),
+            startTime: Date.now(),
+            total: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+            status: "bekliyor"
+        };
+        existingOrders.push(order);
+    }
+
     localStorage.setItem("orders", JSON.stringify(existingOrders));
 
     alert("Teşekkürler! " + tableNo + " siparişi garsona iletildi.");
@@ -274,8 +281,9 @@ const handleCheckout = (e) => {
 const mainCheckoutBtn = document.querySelector(".checkout-btn");
 if (mainCheckoutBtn) mainCheckoutBtn.addEventListener("click", handleCheckout);
 
-// --- SAYFA YÜKLENDİĞİNDE ÇALIŞTIR ---
+// SAYFA YÜKLENDİĞİNDE ÇALIŞTIR
 document.addEventListener("DOMContentLoaded", () => {
     renderProducts(); 
     masaListesiniYukle(); 
+    attachCartEvents(); 
 });

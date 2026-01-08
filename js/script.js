@@ -68,6 +68,24 @@ function masaListesiniYukle() {
     });
 }
 
+// --- GARSON PANELİNDEN GELEN MASAYI YAKALAMA ---
+
+function checkURLForTable() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableFromURL = urlParams.get('masa');
+
+    if (tableFromURL) {
+        const tSelect = document.querySelector("#table-no");
+        if (tSelect) {
+            setTimeout(() => {
+                tSelect.value = tableFromURL;
+                tSelect.style.border = "2px solid #ff4d4d";
+                tSelect.style.backgroundColor = "#fff5f5";
+            }, 300);
+        }
+    }
+}
+
 // --- DINAMIK ÜRÜN YÜKLEME SİSTEMİ ---
 
 function renderProducts() {
@@ -158,7 +176,7 @@ function attachCartEvents() {
 
             const priceStr = priceElement.innerText;
             const price = parseFloat(priceStr.replace(/[^\d.]/g, "")); 
-            const img = productBox.querySelector("img").src;
+            const img = productBox.querySelector("img") ? productBox.querySelector("img").src : "";
 
             const product = { name, price, img, quantity: 1 };
             addToCart(product);
@@ -181,10 +199,8 @@ function addToCart(product) {
 
 function updateCartUI() {
     if (!cartItem) return;
-
     const currentItems = cartItem.querySelectorAll(".cart-item");
     currentItems.forEach(item => item.remove());
-
     const checkoutBtn = document.querySelector(".checkout-btn");
 
     cart.forEach((item, index) => {
@@ -216,11 +232,12 @@ window.removeFromCart = function(index) {
     updateCartUI();
 }
 
-// --- SIPARIS GONDERME (CHECKOUT) ---
+// --- SIPARIS GONDERME (GARSON ICIN ONAY BEKLETMEYEN SISTEM) ---
 
 const handleCheckout = (e) => {
     e.preventDefault();
-    const tableNo = tableSelect ? tableSelect.value : null;
+    const tSelect = document.querySelector("#table-no");
+    const tableNo = tSelect ? tSelect.value : null;
 
     if (tableNo === "default" || !tableNo) {
         alert("Lütfen Siparişten Önce Masanızı Seçiniz!");
@@ -233,29 +250,26 @@ const handleCheckout = (e) => {
     }
 
     let existingOrders = JSON.parse(localStorage.getItem("orders")) || [];
-    
-    // Masa için mevcut bir aktif sipariş olup olmadığını kontrol et
     const existingOrderIndex = existingOrders.findIndex(o => o.table.trim() === tableNo.trim());
 
+    // YENİ: Eğer URL'de masa varsa, garson işlem yapıyordur. Durumu direkt 'onaylandi' yap.
+    const urlParams = new URLSearchParams(window.location.search);
+    const isWaiter = urlParams.get('masa');
+    const finalStatus = isWaiter ? "onaylandi" : "bekliyor";
+
     if (existingOrderIndex !== -1) {
-        // MASA ZATEN AÇIK: Yeni ürünleri ekle
         cart.forEach(newProduct => {
             const itemInOrder = existingOrders[existingOrderIndex].items.find(i => i.name === newProduct.name);
             if (itemInOrder) {
-                // Eğer ürün zaten varsa adedi artır
                 itemInOrder.quantity += newProduct.quantity;
             } else {
-                // Yeni ürün ise listeye ekle
                 existingOrders[existingOrderIndex].items.push(newProduct);
             }
         });
-
-        // Toplamı ve zamanı güncelle, durumu tekrar bekliyor yap
         existingOrders[existingOrderIndex].total = existingOrders[existingOrderIndex].items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        existingOrders[existingOrderIndex].status = "bekliyor";
+        existingOrders[existingOrderIndex].status = finalStatus;
         existingOrders[existingOrderIndex].time = new Date().toLocaleTimeString();
     } else {
-        // YENİ KAYIT OLUŞTUR
         const order = {
             id: Date.now(),
             table: tableNo, 
@@ -263,19 +277,24 @@ const handleCheckout = (e) => {
             time: new Date().toLocaleTimeString(),
             startTime: Date.now(),
             total: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-            status: "bekliyor"
+            status: finalStatus
         };
         existingOrders.push(order);
     }
 
     localStorage.setItem("orders", JSON.stringify(existingOrders));
-
-    alert("Teşekkürler! " + tableNo + " siparişi garsona iletildi.");
     
-    cart = [];
-    updateCartUI();
-    if (cartItem) cartItem.classList.remove("active");
-    if (tableSelect) tableSelect.value = "default";
+    alert("Teşekkürler! " + tableNo + " siparişi sisteme kaydedildi.");
+    
+    // Garsonu otomatik olarak masa listesine geri gönder
+    if (isWaiter) {
+        window.location.href = "masalar.html";
+    } else {
+        cart = [];
+        updateCartUI();
+        if (cartItem) cartItem.classList.remove("active");
+        if (tSelect) tSelect.value = "default";
+    }
 };
 
 const mainCheckoutBtn = document.querySelector(".checkout-btn");
@@ -285,5 +304,6 @@ if (mainCheckoutBtn) mainCheckoutBtn.addEventListener("click", handleCheckout);
 document.addEventListener("DOMContentLoaded", () => {
     renderProducts(); 
     masaListesiniYukle(); 
-    attachCartEvents(); 
+    attachCartEvents();
+    checkURLForTable(); 
 });
